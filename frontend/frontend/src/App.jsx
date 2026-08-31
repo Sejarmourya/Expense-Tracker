@@ -10,7 +10,6 @@ function App() {
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
 
-  // Search & Filter states
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
 
@@ -108,16 +107,30 @@ function App() {
     setEditingId(null);
   };
 
-  // TOTAL
+  // TOTAL EXPENSE
   const totalExpense = expenses.reduce(
     (total, expense) => total + Number(expense.amount),
     0
   );
 
-  // CATEGORY COUNT
+  // TOTAL CATEGORIES
   const categories = new Set(
     expenses.map((expense) => expense.category)
   ).size;
+
+  // CATEGORY-WISE TOTAL
+  const categoryTotals = expenses.reduce((totals, expense) => {
+    const categoryName = expense.category;
+    const amount = Number(expense.amount);
+
+    if (!totals[categoryName]) {
+      totals[categoryName] = 0;
+    }
+
+    totals[categoryName] += amount;
+
+    return totals;
+  }, {});
 
   // SEARCH + FILTER
   const filteredExpenses = expenses.filter((expense) => {
@@ -140,13 +153,13 @@ function App() {
     <div className="app">
       <div className="container">
 
-        {/* Header */}
+        {/* HEADER */}
         <header>
           <h1>💰 Expense Tracker</h1>
           <p>Manage your daily expenses easily</p>
         </header>
 
-        {/* Dashboard Stats */}
+        {/* DASHBOARD STATS */}
         <div className="stats">
 
           <div className="stat-card">
@@ -166,7 +179,25 @@ function App() {
 
         </div>
 
-        {/* Expense Form */}
+        {/* ANALYTICS */}
+        <div className="analytics-card">
+          <h2>📊 Category Analytics</h2>
+
+          {Object.keys(categoryTotals).length === 0 ? (
+            <p className="empty">No analytics available.</p>
+          ) : (
+            Object.entries(categoryTotals).map(
+              ([categoryName, total]) => (
+                <div className="analytics-row" key={categoryName}>
+                  <span>{categoryName}</span>
+                  <strong>₹{total}</strong>
+                </div>
+              )
+            )
+          )}
+        </div>
+
+        {/* FORM */}
         <div className="form-card">
 
           <h2>
@@ -218,7 +249,7 @@ function App() {
 
         </div>
 
-        {/* Search & Filter */}
+        {/* SEARCH + FILTER */}
         <div className="search-filter">
 
           <input
@@ -243,13 +274,15 @@ function App() {
 
         </div>
 
-        {/* Expenses */}
+        {/* EXPENSE LIST */}
         <div className="expense-section">
 
           <h2>Recent Expenses</h2>
 
           {filteredExpenses.length === 0 ? (
-            <p className="empty">No matching expenses found.</p>
+            <p className="empty">
+              No matching expenses found.
+            </p>
           ) : (
             filteredExpenses.map((expense) => (
 

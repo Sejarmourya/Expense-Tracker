@@ -27,3 +27,30 @@
     width: 100%;
   }
 }
+
+.analytics-card {
+  background: white;
+  padding: 25px;
+  border-radius: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+}
+
+.analytics-card h2 {
+  margin-bottom: 18px;
+}
+
+.analytics-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 13px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.analytics-row:last-child {
+  border-bottom: none;
+}
+
+.analytics-row strong {
+  font-size: 17px;
+}

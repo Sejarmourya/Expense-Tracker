@@ -1,92 +1,117 @@
 const express = require("express");
 const Expense = require("../models/Expense");
+const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// POST - Create Expense
-router.post("/", async (req, res) => {
+// GET all expenses of logged-in user
+router.get("/", authMiddleware, async (req, res) => {
   try {
-    const expense = await Expense.create(req.body);
-
-    res.status(201).json({
-      success: true,
-      expense
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// GET - Get All Expenses
-router.get("/", async (req, res) => {
-  try {
-    const expenses = await Expense.find();
+    const expenses = await Expense.find({
+      userId: req.userId,
+    }).sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      expenses
+      expenses,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 });
 
-// PUT - Update Expense
-router.put("/:id", async (req, res) => {
+// ADD expense
+router.post("/", authMiddleware, async (req, res) => {
   try {
-    const expense = await Expense.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
+    const { title, amount, category } = req.body;
+
+    const expense = await Expense.create({
+      title,
+      amount,
+      category,
+      userId: req.userId,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Expense added successfully",
+      expense,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// UPDATE expense
+router.put("/:id", authMiddleware, async (req, res) => {
+  try {
+    const { title, amount, category } = req.body;
+
+    const expense = await Expense.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        userId: req.userId,
+      },
+      {
+        title,
+        amount,
+        category,
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
     );
 
     if (!expense) {
       return res.status(404).json({
         success: false,
-        message: "Expense not found"
+        message: "Expense not found",
       });
     }
 
     res.json({
       success: true,
       message: "Expense updated successfully",
-      expense
+      expense,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 });
 
-// DELETE - Delete Expense
-router.delete("/:id", async (req, res) => {
+// DELETE expense
+router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const expense = await Expense.findByIdAndDelete(req.params.id);
+    const expense = await Expense.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.userId,
+    });
 
     if (!expense) {
       return res.status(404).json({
         success: false,
-        message: "Expense not found"
+        message: "Expense not found",
       });
     }
 
     res.json({
       success: true,
       message: "Expense deleted successfully",
-      expense
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 });
