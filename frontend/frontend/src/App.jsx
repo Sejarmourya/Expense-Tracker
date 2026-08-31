@@ -7,8 +7,9 @@ function App() {
 
   const [expenses, setExpenses] = useState([]);
   const [message, setMessage] = useState("");
+  const [editingId, setEditingId] = useState(null);
 
-  // GET - Fetch expenses
+  // GET expenses
   const getExpenses = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/expenses");
@@ -22,11 +23,15 @@ function App() {
     }
   };
 
-  // POST - Add expense
-  const addExpense = async () => {
+  // POST / PUT
+  const saveExpense = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/expenses", {
-        method: "POST",
+      const url = editingId
+        ? `http://localhost:5000/api/expenses/${editingId}`
+        : "http://localhost:5000/api/expenses";
+
+      const response = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -40,11 +45,16 @@ function App() {
       const data = await response.json();
 
       if (data.success) {
-        setMessage("Expense added successfully ✅");
+        setMessage(
+          editingId
+            ? "Expense updated successfully ✅"
+            : "Expense added successfully ✅"
+        );
 
         setTitle("");
         setAmount("");
         setCategory("");
+        setEditingId(null);
 
         getExpenses();
       }
@@ -54,7 +64,16 @@ function App() {
     }
   };
 
-  // DELETE - Delete expense
+  // Edit button
+  const editExpense = (expense) => {
+    setEditingId(expense._id);
+    setTitle(expense.title);
+    setAmount(expense.amount);
+    setCategory(expense.category);
+    setMessage("");
+  };
+
+  // DELETE
   const deleteExpense = async (id) => {
     try {
       const response = await fetch(
@@ -69,16 +88,12 @@ function App() {
       if (data.success) {
         setMessage("Expense deleted successfully 🗑️");
         getExpenses();
-      } else {
-        setMessage("Expense not found ❌");
       }
     } catch (error) {
       console.log(error);
-      setMessage("Server error ❌");
     }
   };
 
-  // Run when page loads
   useEffect(() => {
     getExpenses();
   }, []);
@@ -108,7 +123,22 @@ function App() {
         onChange={(e) => setCategory(e.target.value)}
       />
 
-      <button onClick={addExpense}>Add Expense</button>
+      <button onClick={saveExpense}>
+        {editingId ? "Update Expense" : "Add Expense"}
+      </button>
+
+      {editingId && (
+        <button
+          onClick={() => {
+            setEditingId(null);
+            setTitle("");
+            setAmount("");
+            setCategory("");
+          }}
+        >
+          Cancel
+        </button>
+      )}
 
       <p>{message}</p>
 
@@ -119,6 +149,10 @@ function App() {
           <h3>{expense.title}</h3>
           <p>Amount: ₹{expense.amount}</p>
           <p>Category: {expense.category}</p>
+
+          <button onClick={() => editExpense(expense)}>
+            Edit ✏️
+          </button>
 
           <button onClick={() => deleteExpense(expense._id)}>
             Delete 🗑️

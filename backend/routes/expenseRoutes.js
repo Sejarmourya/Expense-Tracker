@@ -37,6 +37,35 @@ router.get("/", async (req, res) => {
   }
 });
 
+// PUT - Update Expense
+router.put("/:id", async (req, res) => {
+  try {
+    const expense = await Expense.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!expense) {
+      return res.status(404).json({
+        success: false,
+        message: "Expense not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Expense updated successfully",
+      expense
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // DELETE - Delete Expense
 router.delete("/:id", async (req, res) => {
   try {
@@ -54,7 +83,6 @@ router.delete("/:id", async (req, res) => {
       message: "Expense deleted successfully",
       expense
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
