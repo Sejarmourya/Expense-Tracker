@@ -1,209 +1,318 @@
 import { useEffect, useState } from "react";
+import axios from "axios";
 import "./App.css";
 
+const API = "http://localhost:5000/api";
+
 function App() {
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
+  const [isSignup, setIsSignup] = useState(false);
+
+  // Auth fields
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+
+  // Expense fields
+  const [expenses, setExpenses] = useState([]);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
 
-  const [expenses, setExpenses] = useState([]);
-  const [message, setMessage] = useState("");
+  // Edit
   const [editingId, setEditingId] = useState(null);
 
-  const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState("All");
+  const getConfig = () => ({
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+  });
 
-  // GET expenses
-  const getExpenses = async () => {
+  // =========================
+  // LOGIN
+  // =========================
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setMessage("");
+
     try {
-      const response = await fetch("http://localhost:5000/api/expenses");
-      const data = await response.json();
+      const response = await axios.post(`${API}/auth/login`, {
+        email,
+        password,
+      });
 
-      if (data.success) {
-        setExpenses(data.expenses);
-      }
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+
+      setUser(response.data.user);
+      setEmail("");
+      setPassword("");
+      setMessage("");
     } catch (error) {
-      console.log(error);
+      setMessage(
+        error.response?.data?.message || "Login failed"
+      );
     }
   };
 
-  // ADD / UPDATE
-  const saveExpense = async () => {
+  // =========================
+  // SIGNUP
+  // =========================
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setMessage("");
+
+    try {
+      await axios.post(`${API}/auth/signup`, {
+        name,
+        email,
+        password,
+      });
+
+      setMessage("Signup successful ✅ Now login.");
+
+      setName("");
+      setEmail("");
+      setPassword("");
+      setIsSignup(false);
+    } catch (error) {
+      setMessage(
+        error.response?.data?.message || "Signup failed"
+      );
+    }
+  };
+
+  // =========================
+  // LOGOUT
+  // =========================
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    setUser(null);
+    setExpenses([]);
+  };
+
+  // =========================
+  // GET EXPENSES
+  // =========================
+  const getExpenses = async () => {
+    try {
+      const response = await axios.get(
+        `${API}/expenses`,
+        getConfig()
+      );
+
+      setExpenses(response.data.expenses);
+    } catch (error) {
+      console.log(error);
+
+      if (error.response?.status === 401) {
+        handleLogout();
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      getExpenses();
+    }
+  }, [user]);
+
+  // =========================
+  // ADD / UPDATE EXPENSE
+  // =========================
+  const handleSubmitExpense = async (e) => {
+    e.preventDefault();
+
     if (!title || !amount || !category) {
-      setMessage("Please fill all fields ⚠️");
+      alert("Please fill all expense fields");
       return;
     }
 
     try {
-      const url = editingId
-        ? `http://localhost:5000/api/expenses/${editingId}`
-        : "http://localhost:5000/api/expenses";
-
-      const response = await fetch(url, {
-        method: editingId ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          amount: Number(amount),
-          category,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setMessage(
-          editingId
-            ? "Expense updated successfully ✅"
-            : "Expense added successfully ✅"
+      if (editingId) {
+        await axios.put(
+          `${API}/expenses/${editingId}`,
+          {
+            title,
+            amount,
+            category,
+          },
+          getConfig()
         );
-
-        clearForm();
-        getExpenses();
+      } else {
+        await axios.post(
+          `${API}/expenses`,
+          {
+            title,
+            amount,
+            category,
+          },
+          getConfig()
+        );
       }
+
+      setTitle("");
+      setAmount("");
+      setCategory("");
+      setEditingId(null);
+
+      getExpenses();
     } catch (error) {
       console.log(error);
-      setMessage("Server error ❌");
+      alert(
+        error.response?.data?.message ||
+          "Something went wrong"
+      );
     }
   };
 
+  // =========================
   // EDIT
-  const editExpense = (expense) => {
+  // =========================
+  const handleEdit = (expense) => {
     setEditingId(expense._id);
     setTitle(expense.title);
     setAmount(expense.amount);
     setCategory(expense.category);
-    setMessage("");
   };
 
+  // =========================
   // DELETE
-  const deleteExpense = async (id) => {
+  // =========================
+  const handleDelete = async (id) => {
+    const confirmDelete = window.confirm(
+      "Delete this expense?"
+    );
+
+    if (!confirmDelete) return;
+
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/expenses/${id}`,
-        {
-          method: "DELETE",
-        }
+      await axios.delete(
+        `${API}/expenses/${id}`,
+        getConfig()
       );
 
-      const data = await response.json();
-
-      if (data.success) {
-        setMessage("Expense deleted successfully 🗑️");
-        getExpenses();
-      }
+      getExpenses();
     } catch (error) {
       console.log(error);
     }
   };
 
-  // CLEAR FORM
-  const clearForm = () => {
-    setTitle("");
-    setAmount("");
-    setCategory("");
-    setEditingId(null);
-  };
+  // =========================
+  // LOGIN / SIGNUP PAGE
+  // =========================
+  if (!user) {
+    return (
+      <div className="auth-container">
+        <div className="auth-box">
+          <h1>Expense Tracker</h1>
 
-  // TOTAL EXPENSE
-  const totalExpense = expenses.reduce(
-    (total, expense) => total + Number(expense.amount),
-    0
-  );
+          <h2>{isSignup ? "Create Account" : "Welcome Back"}</h2>
 
-  // TOTAL CATEGORIES
-  const categories = new Set(
-    expenses.map((expense) => expense.category)
-  ).size;
+          {isSignup ? (
+            <form onSubmit={handleSignup}>
+              <input
+                type="text"
+                placeholder="Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
 
-  // CATEGORY-WISE TOTAL
-  const categoryTotals = expenses.reduce((totals, expense) => {
-    const categoryName = expense.category;
-    const amount = Number(expense.amount);
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
 
-    if (!totals[categoryName]) {
-      totals[categoryName] = 0;
-    }
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
 
-    totals[categoryName] += amount;
+              <button type="submit">
+                Create Account
+              </button>
 
-    return totals;
-  }, {});
+              <p>{message}</p>
 
-  // SEARCH + FILTER
-  const filteredExpenses = expenses.filter((expense) => {
-    const matchesSearch = expense.title
-      .toLowerCase()
-      .includes(search.toLowerCase());
-
-    const matchesCategory =
-      filterCategory === "All" ||
-      expense.category === filterCategory;
-
-    return matchesSearch && matchesCategory;
-  });
-
-  useEffect(() => {
-    getExpenses();
-  }, []);
-
-  return (
-    <div className="app">
-      <div className="container">
-
-        {/* HEADER */}
-        <header>
-          <h1>💰 Expense Tracker</h1>
-          <p>Manage your daily expenses easily</p>
-        </header>
-
-        {/* DASHBOARD STATS */}
-        <div className="stats">
-
-          <div className="stat-card">
-            <span>Total Expenses</span>
-            <h2>₹{totalExpense}</h2>
-          </div>
-
-          <div className="stat-card">
-            <span>Total Records</span>
-            <h2>{expenses.length}</h2>
-          </div>
-
-          <div className="stat-card">
-            <span>Categories</span>
-            <h2>{categories}</h2>
-          </div>
-
-        </div>
-
-        {/* ANALYTICS */}
-        <div className="analytics-card">
-          <h2>📊 Category Analytics</h2>
-
-          {Object.keys(categoryTotals).length === 0 ? (
-            <p className="empty">No analytics available.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignup(false);
+                  setMessage("");
+                }}
+              >
+                Already have an account? Login
+              </button>
+            </form>
           ) : (
-            Object.entries(categoryTotals).map(
-              ([categoryName, total]) => (
-                <div className="analytics-row" key={categoryName}>
-                  <span>{categoryName}</span>
-                  <strong>₹{total}</strong>
-                </div>
-              )
-            )
+            <form onSubmit={handleLogin}>
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+
+              <button type="submit">Login</button>
+
+              <p>{message}</p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignup(true);
+                  setMessage("");
+                }}
+              >
+                Create new account
+              </button>
+            </form>
           )}
         </div>
+      </div>
+    );
+  }
 
-        {/* FORM */}
-        <div className="form-card">
+  // =========================
+  // EXPENSE DASHBOARD
+  // =========================
+  return (
+    <div className="app-container">
+      <header>
+        <div>
+          <h1>Expense Tracker</h1>
+          <p>Welcome, {user.name} 👋</p>
+        </div>
 
-          <h2>
-            {editingId ? "✏️ Edit Expense" : "➕ Add Expense"}
-          </h2>
+        <button onClick={handleLogout}>
+          Logout
+        </button>
+      </header>
 
+      <section className="expense-form">
+        <h2>
+          {editingId ? "Update Expense" : "Add Expense"}
+        </h2>
+
+        <form onSubmit={handleSubmitExpense}>
           <input
             type="text"
             placeholder="Expense title"
@@ -218,111 +327,66 @@ function App() {
             onChange={(e) => setAmount(e.target.value)}
           />
 
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">Select Category</option>
-            <option value="Food">🍔 Food</option>
-            <option value="Travel">✈️ Travel</option>
-            <option value="Shopping">🛍️ Shopping</option>
-            <option value="Bills">💡 Bills</option>
-            <option value="Entertainment">🎬 Entertainment</option>
-            <option value="Other">📦 Other</option>
-          </select>
-
-          <div className="form-buttons">
-
-            <button className="primary-btn" onClick={saveExpense}>
-              {editingId ? "Update Expense" : "Add Expense"}
-            </button>
-
-            {editingId && (
-              <button className="cancel-btn" onClick={clearForm}>
-                Cancel
-              </button>
-            )}
-
-          </div>
-
-          {message && <p className="message">{message}</p>}
-
-        </div>
-
-        {/* SEARCH + FILTER */}
-        <div className="search-filter">
-
           <input
             type="text"
-            placeholder="🔎 Search expense..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
           />
 
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="All">All Categories</option>
-            <option value="Food">🍔 Food</option>
-            <option value="Travel">✈️ Travel</option>
-            <option value="Shopping">🛍️ Shopping</option>
-            <option value="Bills">💡 Bills</option>
-            <option value="Entertainment">🎬 Entertainment</option>
-            <option value="Other">📦 Other</option>
-          </select>
+          <button type="submit">
+            {editingId ? "Update Expense" : "Add Expense"}
+          </button>
 
-        </div>
+          {editingId && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(null);
+                setTitle("");
+                setAmount("");
+                setCategory("");
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </form>
+      </section>
 
-        {/* EXPENSE LIST */}
-        <div className="expense-section">
+      <section className="expense-list">
+        <h2>Your Expenses</h2>
 
-          <h2>Recent Expenses</h2>
-
-          {filteredExpenses.length === 0 ? (
-            <p className="empty">
-              No matching expenses found.
-            </p>
-          ) : (
-            filteredExpenses.map((expense) => (
-
-              <div className="expense-card" key={expense._id}>
-
-                <div>
-                  <h3>{expense.title}</h3>
-                  <span>{expense.category}</span>
-                </div>
-
-                <div className="expense-right">
-
-                  <strong>₹{expense.amount}</strong>
-
-                  <div>
-                    <button
-                      className="edit-btn"
-                      onClick={() => editExpense(expense)}
-                    >
-                      Edit ✏️
-                    </button>
-
-                    <button
-                      className="delete-btn"
-                      onClick={() => deleteExpense(expense._id)}
-                    >
-                      Delete 🗑️
-                    </button>
-                  </div>
-
-                </div>
-
+        {expenses.length === 0 ? (
+          <p>No expenses found.</p>
+        ) : (
+          expenses.map((expense) => (
+            <div className="expense-card" key={expense._id}>
+              <div>
+                <h3>{expense.title}</h3>
+                <p>Category: {expense.category}</p>
+                <strong>₹{expense.amount}</strong>
               </div>
 
-            ))
-          )}
+              <div>
+                <button
+                  onClick={() => handleEdit(expense)}
+                >
+                  Edit
+                </button>
 
-        </div>
-
-      </div>
+                <button
+                  onClick={() =>
+                    handleDelete(expense._id)
+                  }
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </section>
     </div>
   );
 }
