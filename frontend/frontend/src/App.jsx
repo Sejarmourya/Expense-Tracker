@@ -10,6 +10,11 @@ function App() {
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
 
+  // Search & Filter states
+  const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("All");
+
+  // GET expenses
   const getExpenses = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/expenses");
@@ -23,6 +28,7 @@ function App() {
     }
   };
 
+  // ADD / UPDATE
   const saveExpense = async () => {
     if (!title || !amount || !category) {
       setMessage("Please fill all fields ⚠️");
@@ -64,6 +70,7 @@ function App() {
     }
   };
 
+  // EDIT
   const editExpense = (expense) => {
     setEditingId(expense._id);
     setTitle(expense.title);
@@ -72,6 +79,7 @@ function App() {
     setMessage("");
   };
 
+  // DELETE
   const deleteExpense = async (id) => {
     try {
       const response = await fetch(
@@ -92,6 +100,7 @@ function App() {
     }
   };
 
+  // CLEAR FORM
   const clearForm = () => {
     setTitle("");
     setAmount("");
@@ -99,10 +108,29 @@ function App() {
     setEditingId(null);
   };
 
+  // TOTAL
   const totalExpense = expenses.reduce(
     (total, expense) => total + Number(expense.amount),
     0
   );
+
+  // CATEGORY COUNT
+  const categories = new Set(
+    expenses.map((expense) => expense.category)
+  ).size;
+
+  // SEARCH + FILTER
+  const filteredExpenses = expenses.filter((expense) => {
+    const matchesSearch = expense.title
+      .toLowerCase()
+      .includes(search.toLowerCase());
+
+    const matchesCategory =
+      filterCategory === "All" ||
+      expense.category === filterCategory;
+
+    return matchesSearch && matchesCategory;
+  });
 
   useEffect(() => {
     getExpenses();
@@ -112,18 +140,38 @@ function App() {
     <div className="app">
       <div className="container">
 
+        {/* Header */}
         <header>
           <h1>💰 Expense Tracker</h1>
           <p>Manage your daily expenses easily</p>
         </header>
 
-        <div className="total-card">
-          <span>Total Expenses</span>
-          <h2>₹{totalExpense}</h2>
+        {/* Dashboard Stats */}
+        <div className="stats">
+
+          <div className="stat-card">
+            <span>Total Expenses</span>
+            <h2>₹{totalExpense}</h2>
+          </div>
+
+          <div className="stat-card">
+            <span>Total Records</span>
+            <h2>{expenses.length}</h2>
+          </div>
+
+          <div className="stat-card">
+            <span>Categories</span>
+            <h2>{categories}</h2>
+          </div>
+
         </div>
 
+        {/* Expense Form */}
         <div className="form-card">
-          <h2>{editingId ? "Edit Expense" : "Add Expense"}</h2>
+
+          <h2>
+            {editingId ? "✏️ Edit Expense" : "➕ Add Expense"}
+          </h2>
 
           <input
             type="text"
@@ -139,14 +187,21 @@ function App() {
             onChange={(e) => setAmount(e.target.value)}
           />
 
-          <input
-            type="text"
-            placeholder="Category"
+          <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-          />
+          >
+            <option value="">Select Category</option>
+            <option value="Food">🍔 Food</option>
+            <option value="Travel">✈️ Travel</option>
+            <option value="Shopping">🛍️ Shopping</option>
+            <option value="Bills">💡 Bills</option>
+            <option value="Entertainment">🎬 Entertainment</option>
+            <option value="Other">📦 Other</option>
+          </select>
 
           <div className="form-buttons">
+
             <button className="primary-btn" onClick={saveExpense}>
               {editingId ? "Update Expense" : "Add Expense"}
             </button>
@@ -156,25 +211,57 @@ function App() {
                 Cancel
               </button>
             )}
+
           </div>
 
           {message && <p className="message">{message}</p>}
+
         </div>
 
+        {/* Search & Filter */}
+        <div className="search-filter">
+
+          <input
+            type="text"
+            placeholder="🔎 Search expense..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+          >
+            <option value="All">All Categories</option>
+            <option value="Food">🍔 Food</option>
+            <option value="Travel">✈️ Travel</option>
+            <option value="Shopping">🛍️ Shopping</option>
+            <option value="Bills">💡 Bills</option>
+            <option value="Entertainment">🎬 Entertainment</option>
+            <option value="Other">📦 Other</option>
+          </select>
+
+        </div>
+
+        {/* Expenses */}
         <div className="expense-section">
+
           <h2>Recent Expenses</h2>
 
-          {expenses.length === 0 ? (
-            <p className="empty">No expenses found.</p>
+          {filteredExpenses.length === 0 ? (
+            <p className="empty">No matching expenses found.</p>
           ) : (
-            expenses.map((expense) => (
+            filteredExpenses.map((expense) => (
+
               <div className="expense-card" key={expense._id}>
+
                 <div>
                   <h3>{expense.title}</h3>
                   <span>{expense.category}</span>
                 </div>
 
                 <div className="expense-right">
+
                   <strong>₹{expense.amount}</strong>
 
                   <div>
@@ -192,10 +279,14 @@ function App() {
                       Delete 🗑️
                     </button>
                   </div>
+
                 </div>
+
               </div>
+
             ))
           )}
+
         </div>
 
       </div>
