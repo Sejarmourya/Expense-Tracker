@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "./App.css";
 
 function App() {
   const [title, setTitle] = useState("");
@@ -9,7 +10,6 @@ function App() {
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
 
-  // GET expenses
   const getExpenses = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/expenses");
@@ -23,8 +23,12 @@ function App() {
     }
   };
 
-  // POST / PUT
   const saveExpense = async () => {
+    if (!title || !amount || !category) {
+      setMessage("Please fill all fields ⚠️");
+      return;
+    }
+
     try {
       const url = editingId
         ? `http://localhost:5000/api/expenses/${editingId}`
@@ -51,11 +55,7 @@ function App() {
             : "Expense added successfully ✅"
         );
 
-        setTitle("");
-        setAmount("");
-        setCategory("");
-        setEditingId(null);
-
+        clearForm();
         getExpenses();
       }
     } catch (error) {
@@ -64,7 +64,6 @@ function App() {
     }
   };
 
-  // Edit button
   const editExpense = (expense) => {
     setEditingId(expense._id);
     setTitle(expense.title);
@@ -73,7 +72,6 @@ function App() {
     setMessage("");
   };
 
-  // DELETE
   const deleteExpense = async (id) => {
     try {
       const response = await fetch(
@@ -94,73 +92,113 @@ function App() {
     }
   };
 
+  const clearForm = () => {
+    setTitle("");
+    setAmount("");
+    setCategory("");
+    setEditingId(null);
+  };
+
+  const totalExpense = expenses.reduce(
+    (total, expense) => total + Number(expense.amount),
+    0
+  );
+
   useEffect(() => {
     getExpenses();
   }, []);
 
   return (
-    <div>
-      <h1>Expense Tracker</h1>
+    <div className="app">
+      <div className="container">
 
-      <input
-        type="text"
-        placeholder="Expense title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
+        <header>
+          <h1>💰 Expense Tracker</h1>
+          <p>Manage your daily expenses easily</p>
+        </header>
 
-      <input
-        type="number"
-        placeholder="Amount"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-      />
-
-      <input
-        type="text"
-        placeholder="Category"
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-      />
-
-      <button onClick={saveExpense}>
-        {editingId ? "Update Expense" : "Add Expense"}
-      </button>
-
-      {editingId && (
-        <button
-          onClick={() => {
-            setEditingId(null);
-            setTitle("");
-            setAmount("");
-            setCategory("");
-          }}
-        >
-          Cancel
-        </button>
-      )}
-
-      <p>{message}</p>
-
-      <h2>Expenses</h2>
-
-      {expenses.map((expense) => (
-        <div key={expense._id}>
-          <h3>{expense.title}</h3>
-          <p>Amount: ₹{expense.amount}</p>
-          <p>Category: {expense.category}</p>
-
-          <button onClick={() => editExpense(expense)}>
-            Edit ✏️
-          </button>
-
-          <button onClick={() => deleteExpense(expense._id)}>
-            Delete 🗑️
-          </button>
-
-          <hr />
+        <div className="total-card">
+          <span>Total Expenses</span>
+          <h2>₹{totalExpense}</h2>
         </div>
-      ))}
+
+        <div className="form-card">
+          <h2>{editingId ? "Edit Expense" : "Add Expense"}</h2>
+
+          <input
+            type="text"
+            placeholder="Expense title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+
+          <input
+            type="number"
+            placeholder="Amount"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+
+          <input
+            type="text"
+            placeholder="Category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          />
+
+          <div className="form-buttons">
+            <button className="primary-btn" onClick={saveExpense}>
+              {editingId ? "Update Expense" : "Add Expense"}
+            </button>
+
+            {editingId && (
+              <button className="cancel-btn" onClick={clearForm}>
+                Cancel
+              </button>
+            )}
+          </div>
+
+          {message && <p className="message">{message}</p>}
+        </div>
+
+        <div className="expense-section">
+          <h2>Recent Expenses</h2>
+
+          {expenses.length === 0 ? (
+            <p className="empty">No expenses found.</p>
+          ) : (
+            expenses.map((expense) => (
+              <div className="expense-card" key={expense._id}>
+                <div>
+                  <h3>{expense.title}</h3>
+                  <span>{expense.category}</span>
+                </div>
+
+                <div className="expense-right">
+                  <strong>₹{expense.amount}</strong>
+
+                  <div>
+                    <button
+                      className="edit-btn"
+                      onClick={() => editExpense(expense)}
+                    >
+                      Edit ✏️
+                    </button>
+
+                    <button
+                      className="delete-btn"
+                      onClick={() => deleteExpense(expense._id)}
+                    >
+                      Delete 🗑️
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+      </div>
     </div>
   );
 }
