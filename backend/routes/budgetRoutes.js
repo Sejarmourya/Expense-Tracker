@@ -1,6 +1,6 @@
 const express = require("express");
 const Expense = require("../models/Expense");
-const Budget = require("../models/Budget");
+const Budget = require("../models/budget");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
