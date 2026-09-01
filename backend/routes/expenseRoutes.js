@@ -1,15 +1,20 @@
 const express = require("express");
+
 const Expense = require("../models/Expense");
+
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// GET all expenses of logged-in user
+// =========================
+// GET ALL EXPENSES
+// =========================
+
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const expenses = await Expense.find({
       userId: req.userId,
-    }).sort({ createdAt: -1 });
+    }).sort({ date: -1 });
 
     res.json({
       success: true,
@@ -23,15 +28,31 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// ADD expense
+// =========================
+// ADD EXPENSE
+// =========================
+
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { title, amount, category } = req.body;
+    const {
+      title,
+      amount,
+      category,
+      date,
+    } = req.body;
+
+    if (!title || !amount || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "Please fill all expense fields",
+      });
+    }
 
     const expense = await Expense.create({
       title,
       amount,
       category,
+      date: date || new Date(),
       userId: req.userId,
     });
 
@@ -48,10 +69,18 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// UPDATE expense
+// =========================
+// UPDATE EXPENSE
+// =========================
+
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
-    const { title, amount, category } = req.body;
+    const {
+      title,
+      amount,
+      category,
+      date,
+    } = req.body;
 
     const expense = await Expense.findOneAndUpdate(
       {
@@ -62,6 +91,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
         title,
         amount,
         category,
+        date,
       },
       {
         new: true,
@@ -89,7 +119,10 @@ router.put("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE expense
+// =========================
+// DELETE EXPENSE
+// =========================
+
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const expense = await Expense.findOneAndDelete({
