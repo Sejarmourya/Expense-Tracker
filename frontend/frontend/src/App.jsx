@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import "./App.css";
 
 const API = "http://localhost:5000/api";
@@ -12,13 +20,13 @@ function App() {
 
   const [isSignup, setIsSignup] = useState(false);
 
-  // Auth fields
+  // Auth
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  // Expense fields
+  // Expenses
   const [expenses, setExpenses] = useState([]);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -52,7 +60,10 @@ function App() {
       });
 
       localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+      localStorage.setItem(
+        "user",
+        JSON.stringify(response.data.user)
+      );
 
       setUser(response.data.user);
       setEmail("");
@@ -133,7 +144,7 @@ function App() {
   }, [user]);
 
   // =========================
-  // ADD / UPDATE EXPENSE
+  // ADD / UPDATE
   // =========================
 
   const handleSubmitExpense = async (e) => {
@@ -223,7 +234,9 @@ function App() {
 
   const categories = [
     "All",
-    ...new Set(expenses.map((expense) => expense.category)),
+    ...new Set(
+      expenses.map((expense) => expense.category)
+    ),
   ];
 
   const filteredExpenses = expenses.filter((expense) => {
@@ -260,7 +273,30 @@ function App() {
       : 0;
 
   // =========================
-  // LOGIN / SIGNUP PAGE
+  // CATEGORY ANALYTICS
+  // =========================
+
+  const categoryData = Object.values(
+    expenses.reduce((result, expense) => {
+      const categoryName = expense.category;
+
+      if (!result[categoryName]) {
+        result[categoryName] = {
+          name: categoryName,
+          value: 0,
+        };
+      }
+
+      result[categoryName].value += Number(
+        expense.amount
+      );
+
+      return result;
+    }, {})
+  );
+
+  // =========================
+  // LOGIN / SIGNUP
   // =========================
 
   if (!user) {
@@ -353,7 +389,7 @@ function App() {
   }
 
   // =========================
-  // EXPENSE DASHBOARD
+  // DASHBOARD
   // =========================
 
   return (
@@ -369,7 +405,7 @@ function App() {
         </button>
       </header>
 
-      {/* DASHBOARD SUMMARY */}
+      {/* SUMMARY */}
 
       <section className="summary-container">
         <div className="summary-card">
@@ -388,11 +424,56 @@ function App() {
         </div>
       </section>
 
-      {/* ADD / UPDATE FORM */}
+      {/* ANALYTICS */}
+
+      <section className="analytics-container">
+        <h2>Spending by Category</h2>
+
+        {categoryData.length === 0 ? (
+          <p>No expense data available.</p>
+        ) : (
+          <div className="chart-container">
+            <ResponsiveContainer
+              width="100%"
+              height={350}
+            >
+              <PieChart>
+                <Pie
+                  data={categoryData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={120}
+                  label
+                >
+                  {categoryData.map(
+                    (entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                      />
+                    )
+                  )}
+                </Pie>
+
+                <Tooltip
+                  formatter={(value) => `₹${value}`}
+                />
+
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </section>
+
+      {/* ADD / UPDATE */}
 
       <section className="expense-form">
         <h2>
-          {editingId ? "Update Expense" : "Add Expense"}
+          {editingId
+            ? "Update Expense"
+            : "Add Expense"}
         </h2>
 
         <form onSubmit={handleSubmitExpense}>
@@ -400,25 +481,33 @@ function App() {
             type="text"
             placeholder="Expense title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) =>
+              setTitle(e.target.value)
+            }
           />
 
           <input
             type="number"
             placeholder="Amount"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) =>
+              setAmount(e.target.value)
+            }
           />
 
           <input
             type="text"
             placeholder="Category"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) =>
+              setCategory(e.target.value)
+            }
           />
 
           <button type="submit">
-            {editingId ? "Update Expense" : "Add Expense"}
+            {editingId
+              ? "Update Expense"
+              : "Add Expense"}
           </button>
 
           {editingId && (
@@ -447,7 +536,9 @@ function App() {
             type="text"
             placeholder="Search expense..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
           />
 
           <select
@@ -489,7 +580,9 @@ function App() {
 
               <div>
                 <button
-                  onClick={() => handleEdit(expense)}
+                  onClick={() =>
+                    handleEdit(expense)
+                  }
                 >
                   Edit
                 </button>
