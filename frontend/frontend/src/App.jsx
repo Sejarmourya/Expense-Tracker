@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   PieChart,
@@ -7,22 +7,27 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from "recharts";
 import "./App.css";
 
 const API = "http://localhost:5000/api";
 
 const CHART_COLORS = [
-  "#2563eb",
-  "#16a34a",
+  "#6366f1",
+  "#22c55e",
   "#f59e0b",
-  "#dc2626",
-  "#9333ea",
-  "#0891b2",
-  "#db2777",
-  "#65a30d",
-  "#ea580c",
-  "#4f46e5",
+  "#ef4444",
+  "#a855f7",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+  "#f97316",
+  "#14b8a6",
 ];
 
 function App() {
@@ -33,46 +38,62 @@ function App() {
 
   const [isSignup, setIsSignup] = useState(false);
 
-  // Dark Mode
+  // =========================
+  // THEME
+  // =========================
+
   const [darkMode, setDarkMode] = useState(
-    localStorage.getItem("darkMode") === "true"
+    localStorage.getItem("darkMode") !== "false"
   );
-
-  // Auth
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  // Expenses
-  const [expenses, setExpenses] = useState([]);
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
-
-  // Edit
-  const [editingId, setEditingId] = useState(null);
-
-  // Search / Filter
-  const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState("All");
-
-  // Loading
-  const [authLoading, setAuthLoading] = useState(false);
-  const [expensesLoading, setExpensesLoading] = useState(false);
-  const [expenseSaving, setExpenseSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
-
-  // Messages
-  const [authMessage, setAuthMessage] = useState("");
-  const [error, setError] = useState("");
-
-  // =========================
-  // DARK MODE
-  // =========================
 
   useEffect(() => {
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
+
+  // =========================
+  // AUTH
+  // =========================
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [authMessage, setAuthMessage] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // =========================
+  // EXPENSE
+  // =========================
+
+  const [expenses, setExpenses] = useState([]);
+
+  const [title, setTitle] = useState("");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState("");
+  const [date, setDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
+  const [editingId, setEditingId] = useState(null);
+
+  // =========================
+  // FILTERS
+  // =========================
+
+  const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("All");
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
+
+  // =========================
+  // LOADING / ERROR
+  // =========================
+
+  const [expensesLoading, setExpensesLoading] = useState(false);
+  const [expenseSaving, setExpenseSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [error, setError] = useState("");
 
   // =========================
   // API CONFIG
@@ -104,9 +125,8 @@ function App() {
     e.preventDefault();
 
     setAuthMessage("");
-    setError("");
 
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setAuthMessage("Please enter email and password.");
       return;
     }
@@ -120,7 +140,6 @@ function App() {
       });
 
       localStorage.setItem("token", response.data.token);
-
       localStorage.setItem(
         "user",
         JSON.stringify(response.data.user)
@@ -130,10 +149,9 @@ function App() {
 
       setEmail("");
       setPassword("");
-    } catch (err) {
+    } catch (error) {
       setAuthMessage(
-        err.response?.data?.message ||
-          "Login failed. Please try again."
+        error.response?.data?.message || "Login failed."
       );
     } finally {
       setAuthLoading(false);
@@ -148,7 +166,6 @@ function App() {
     e.preventDefault();
 
     setAuthMessage("");
-    setError("");
 
     if (!name.trim() || !email.trim() || !password) {
       setAuthMessage("Please fill all fields.");
@@ -156,9 +173,7 @@ function App() {
     }
 
     if (password.length < 6) {
-      setAuthMessage(
-        "Password must be at least 6 characters."
-      );
+      setAuthMessage("Password must be at least 6 characters.");
       return;
     }
 
@@ -179,10 +194,9 @@ function App() {
       setEmail("");
       setPassword("");
       setIsSignup(false);
-    } catch (err) {
+    } catch (error) {
       setAuthMessage(
-        err.response?.data?.message ||
-          "Signup failed. Please try again."
+        error.response?.data?.message || "Signup failed."
       );
     } finally {
       setAuthLoading(false);
@@ -204,16 +218,16 @@ function App() {
       );
 
       setExpenses(response.data.expenses || []);
-    } catch (err) {
-      console.log(err);
+    } catch (error) {
+      console.log(error);
 
-      if (err.response?.status === 401) {
+      if (error.response?.status === 401) {
         handleLogout();
         return;
       }
 
       setError(
-        err.response?.data?.message ||
+        error.response?.data?.message ||
           "Unable to load expenses."
       );
     } finally {
@@ -228,7 +242,24 @@ function App() {
   }, [user]);
 
   // =========================
-  // ADD / UPDATE EXPENSE
+  // CLEAR FORM
+  // =========================
+
+  const clearForm = () => {
+    setTitle("");
+    setAmount("");
+    setCategory("");
+
+    setDate(
+      new Date().toISOString().split("T")[0]
+    );
+
+    setEditingId(null);
+    setError("");
+  };
+
+  // =========================
+  // ADD / UPDATE
   // =========================
 
   const handleSubmitExpense = async (e) => {
@@ -240,17 +271,20 @@ function App() {
     const cleanCategory = category.trim();
     const numericAmount = Number(amount);
 
-    if (!cleanTitle || !cleanCategory || !amount) {
+    if (
+      !cleanTitle ||
+      !cleanCategory ||
+      !amount ||
+      !date
+    ) {
       setError("Please fill all expense fields.");
       return;
     }
 
-    if (numericAmount <= 0) {
-      setError("Amount must be greater than 0.");
-      return;
-    }
-
-    if (!Number.isFinite(numericAmount)) {
+    if (
+      !Number.isFinite(numericAmount) ||
+      numericAmount <= 0
+    ) {
       setError("Please enter a valid amount.");
       return;
     }
@@ -258,44 +292,39 @@ function App() {
     setExpenseSaving(true);
 
     try {
+      const expenseData = {
+        title: cleanTitle,
+        amount: numericAmount,
+        category: cleanCategory,
+        date,
+      };
+
       if (editingId) {
         await axios.put(
           `${API}/expenses/${editingId}`,
-          {
-            title: cleanTitle,
-            amount: numericAmount,
-            category: cleanCategory,
-          },
+          expenseData,
           getConfig()
         );
       } else {
         await axios.post(
           `${API}/expenses`,
-          {
-            title: cleanTitle,
-            amount: numericAmount,
-            category: cleanCategory,
-          },
+          expenseData,
           getConfig()
         );
       }
 
-      setTitle("");
-      setAmount("");
-      setCategory("");
-      setEditingId(null);
-
+      clearForm();
       await getExpenses();
-    } catch (err) {
-      console.log(err);
+    } catch (error) {
+      console.log(error);
 
-      if (err.response?.status === 401) {
+      if (error.response?.status === 401) {
         handleLogout();
         return;
       }
 
       setError(
-        err.response?.data?.message ||
+        error.response?.data?.message ||
           "Unable to save expense."
       );
     } finally {
@@ -315,22 +344,21 @@ function App() {
     setAmount(expense.amount);
     setCategory(expense.category);
 
+    const expenseDate =
+      expense.date || expense.createdAt;
+
+    if (expenseDate) {
+      setDate(
+        new Date(expenseDate)
+          .toISOString()
+          .split("T")[0]
+      );
+    }
+
     window.scrollTo({
       top: 0,
       behavior: "smooth",
     });
-  };
-
-  // =========================
-  // CANCEL EDIT
-  // =========================
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setTitle("");
-    setAmount("");
-    setCategory("");
-    setError("");
   };
 
   // =========================
@@ -354,20 +382,20 @@ function App() {
       );
 
       if (editingId === id) {
-        cancelEdit();
+        clearForm();
       }
 
       await getExpenses();
-    } catch (err) {
-      console.log(err);
+    } catch (error) {
+      console.log(error);
 
-      if (err.response?.status === 401) {
+      if (error.response?.status === 401) {
         handleLogout();
         return;
       }
 
       setError(
-        err.response?.data?.message ||
+        error.response?.data?.message ||
           "Unable to delete expense."
       );
     } finally {
@@ -376,56 +404,148 @@ function App() {
   };
 
   // =========================
-  // SEARCH / FILTER
+  // CATEGORY LIST
   // =========================
 
-  const categories = [
-    "All",
-    ...new Set(
-      expenses.map((expense) => expense.category)
-    ),
-  ];
-
-  const filteredExpenses = expenses.filter((expense) => {
-    const matchesSearch = expense.title
-      .toLowerCase()
-      .includes(search.toLowerCase());
-
-    const matchesCategory =
-      filterCategory === "All" ||
-      expense.category === filterCategory;
-
-    return matchesSearch && matchesCategory;
-  });
+  const categories = useMemo(() => {
+    return [
+      "All",
+      ...new Set(
+        expenses
+          .map((expense) => expense.category)
+          .filter(Boolean)
+      ),
+    ];
+  }, [expenses]);
 
   // =========================
-  // SUMMARY
+  // MONTH LIST
+  // =========================
+
+  const availableMonths = useMemo(() => {
+    const months = expenses
+      .map((expense) => {
+        const expenseDate =
+          expense.date || expense.createdAt;
+
+        if (!expenseDate) return null;
+
+        return new Date(expenseDate)
+          .toISOString()
+          .slice(0, 7);
+      })
+      .filter(Boolean);
+
+    const uniqueMonths = [...new Set(months)];
+
+    const currentMonth = new Date()
+      .toISOString()
+      .slice(0, 7);
+
+    if (!uniqueMonths.includes(currentMonth)) {
+      uniqueMonths.push(currentMonth);
+    }
+
+    return uniqueMonths.sort((a, b) =>
+      b.localeCompare(a)
+    );
+  }, [expenses]);
+
+  // =========================
+  // FILTERED EXPENSES
+  // =========================
+
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      const expenseDate =
+        expense.date || expense.createdAt;
+
+      if (!expenseDate) return false;
+
+      const expenseMonth = new Date(expenseDate)
+        .toISOString()
+        .slice(0, 7);
+
+      const matchesSearch =
+        expense.title
+          ?.toLowerCase()
+          .includes(search.toLowerCase()) ||
+        expense.category
+          ?.toLowerCase()
+          .includes(search.toLowerCase());
+
+      const matchesCategory =
+        filterCategory === "All" ||
+        expense.category === filterCategory;
+
+      const matchesMonth =
+        expenseMonth === selectedMonth;
+
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesMonth
+      );
+    });
+  }, [
+    expenses,
+    search,
+    filterCategory,
+    selectedMonth,
+  ]);
+
+  // =========================
+  // MONTHLY EXPENSES
+  // =========================
+
+  const monthlyExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      const expenseDate =
+        expense.date || expense.createdAt;
+
+      if (!expenseDate) return false;
+
+      return (
+        new Date(expenseDate)
+          .toISOString()
+          .slice(0, 7) === selectedMonth
+      );
+    });
+  }, [expenses, selectedMonth]);
+
+  // =========================
+  // TOTALS
   // =========================
 
   const totalExpenses = expenses.reduce(
     (total, expense) =>
-      total + Number(expense.amount),
+      total + Number(expense.amount || 0),
     0
   );
 
-  const expenseCount = expenses.length;
+  const monthlyTotal = monthlyExpenses.reduce(
+    (total, expense) =>
+      total + Number(expense.amount || 0),
+    0
+  );
 
   const highestExpense =
     expenses.length > 0
       ? Math.max(
           ...expenses.map((expense) =>
-            Number(expense.amount)
+            Number(expense.amount || 0)
           )
         )
       : 0;
 
   // =========================
-  // CATEGORY CHART DATA
+  // CATEGORY DATA
   // =========================
 
   const categoryData = Object.values(
-    expenses.reduce((result, expense) => {
-      const categoryName = expense.category;
+    monthlyExpenses.reduce((result, expense) => {
+      const categoryName =
+        expense.category || "Other";
 
       if (!result[categoryName]) {
         result[categoryName] = {
@@ -435,7 +555,7 @@ function App() {
       }
 
       result[categoryName].value += Number(
-        expense.amount
+        expense.amount || 0
       );
 
       return result;
@@ -443,7 +563,54 @@ function App() {
   );
 
   // =========================
-  // AUTH PAGE
+  // MONTHLY BAR DATA
+  // =========================
+
+  const monthlyChartData = availableMonths
+    .slice()
+    .reverse()
+    .map((month) => {
+      const monthExpenses = expenses.filter(
+        (expense) => {
+          const expenseDate =
+            expense.date || expense.createdAt;
+
+          if (!expenseDate) return false;
+
+          return (
+            new Date(expenseDate)
+              .toISOString()
+              .slice(0, 7) === month
+          );
+        }
+      );
+
+      const total = monthExpenses.reduce(
+        (sum, expense) =>
+          sum + Number(expense.amount || 0),
+        0
+      );
+
+      return {
+        month: new Date(
+          `${month}-01`
+        ).toLocaleDateString("en-IN", {
+          month: "short",
+          year: "2-digit",
+        }),
+        total,
+      };
+    });
+
+  const selectedMonthLabel = new Date(
+    `${selectedMonth}-01`
+  ).toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+
+  // =========================
+  // AUTH SCREEN
   // =========================
 
   if (!user) {
@@ -453,32 +620,43 @@ function App() {
           darkMode ? "dark-mode" : ""
         }`}
       >
-        <div className="auth-box">
-          <div className="auth-top">
-            <h1>Expense Tracker</h1>
+        <div className="auth-background-circle circle-one" />
+        <div className="auth-background-circle circle-two" />
 
-            <button
-              className="theme-toggle"
-              onClick={() =>
-                setDarkMode(!darkMode)
-              }
-              type="button"
-            >
-              {darkMode ? "☀️" : "🌙"}
-            </button>
+        <div className="auth-box">
+          <div className="auth-brand">
+            <div className="brand-icon">₹</div>
+
+            <div>
+              <h1>ExpenseFlow</h1>
+              <p>Smart money management</p>
+            </div>
           </div>
 
-          <h2>
-            {isSignup
-              ? "Create Account"
-              : "Welcome Back"}
-          </h2>
+          <div className="auth-heading">
+            <h2>
+              {isSignup
+                ? "Create your account"
+                : "Welcome back"}
+            </h2>
+
+            <p>
+              {isSignup
+                ? "Start tracking your expenses today."
+                : "Manage your spending with ease."}
+            </p>
+          </div>
 
           {isSignup ? (
-            <form onSubmit={handleSignup}>
+            <form
+              className="auth-form"
+              onSubmit={handleSignup}
+            >
+              <label>Full Name</label>
+
               <input
                 type="text"
-                placeholder="Name"
+                placeholder="Enter your name"
                 value={name}
                 onChange={(e) =>
                   setName(e.target.value)
@@ -486,9 +664,11 @@ function App() {
                 disabled={authLoading}
               />
 
+              <label>Email Address</label>
+
               <input
                 type="email"
-                placeholder="Email"
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) =>
                   setEmail(e.target.value)
@@ -496,9 +676,11 @@ function App() {
                 disabled={authLoading}
               />
 
+              <label>Password</label>
+
               <input
                 type="password"
-                placeholder="Password (min 6 characters)"
+                placeholder="Minimum 6 characters"
                 value={password}
                 onChange={(e) =>
                   setPassword(e.target.value)
@@ -507,36 +689,44 @@ function App() {
               />
 
               <button
+                className="primary-auth-button"
                 type="submit"
                 disabled={authLoading}
               >
                 {authLoading
-                  ? "Creating..."
+                  ? "Creating account..."
                   : "Create Account"}
               </button>
 
               {authMessage && (
-                <p className="message">
+                <p className="auth-message">
                   {authMessage}
                 </p>
               )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignup(false);
-                  setAuthMessage("");
-                }}
-                disabled={authLoading}
-              >
-                Already have an account? Login
-              </button>
+              <p className="switch-auth">
+                Already have an account?
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignup(false);
+                    setAuthMessage("");
+                  }}
+                >
+                  Login
+                </button>
+              </p>
             </form>
           ) : (
-            <form onSubmit={handleLogin}>
+            <form
+              className="auth-form"
+              onSubmit={handleLogin}
+            >
+              <label>Email Address</label>
+
               <input
                 type="email"
-                placeholder="Email"
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) =>
                   setEmail(e.target.value)
@@ -544,9 +734,11 @@ function App() {
                 disabled={authLoading}
               />
 
+              <label>Password</label>
+
               <input
                 type="password"
-                placeholder="Password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) =>
                   setPassword(e.target.value)
@@ -555,6 +747,7 @@ function App() {
               />
 
               <button
+                className="primary-auth-button"
                 type="submit"
                 disabled={authLoading}
               >
@@ -564,23 +757,37 @@ function App() {
               </button>
 
               {authMessage && (
-                <p className="message">
+                <p className="auth-message">
                   {authMessage}
                 </p>
               )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignup(true);
-                  setAuthMessage("");
-                }}
-                disabled={authLoading}
-              >
-                Create new account
-              </button>
+              <p className="switch-auth">
+                Don't have an account?
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignup(true);
+                    setAuthMessage("");
+                  }}
+                >
+                  Create Account
+                </button>
+              </p>
             </form>
           )}
+
+          <button
+            className="auth-theme-button"
+            onClick={() =>
+              setDarkMode(!darkMode)
+            }
+            type="button"
+          >
+            {darkMode
+              ? "☀️ Light Mode"
+              : "🌙 Dark Mode"}
+          </button>
         </div>
       </div>
     );
@@ -593,13 +800,20 @@ function App() {
   return (
     <div
       className={`app-container ${
-        darkMode ? "dark-mode" : ""
+        darkMode ? "dark-mode" : "light-mode"
       }`}
     >
-      <header>
-        <div>
-          <h1>Expense Tracker</h1>
-          <p>Welcome, {user.name} 👋</p>
+      <header className="top-header">
+        <div className="brand-section">
+          <div className="brand-logo">₹</div>
+
+          <div>
+            <h1>ExpenseFlow</h1>
+            <p>
+              Welcome back,{" "}
+              <strong>{user.name}</strong> 👋
+            </p>
+          </div>
         </div>
 
         <div className="header-actions">
@@ -609,6 +823,7 @@ function App() {
               setDarkMode(!darkMode)
             }
             type="button"
+            title="Toggle theme"
           >
             {darkMode ? "☀️" : "🌙"}
           </button>
@@ -624,7 +839,14 @@ function App() {
 
       {error && (
         <div className="error-message">
-          ⚠️ {error}
+          <span>⚠️</span>
+          {error}
+
+          <button
+            onClick={() => setError("")}
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -632,157 +854,427 @@ function App() {
 
       <section className="summary-container">
         <div className="summary-card">
-          <h3>Total Expenses</h3>
-          <h2>₹{totalExpenses}</h2>
+          <div className="summary-icon purple">
+            ₹
+          </div>
+
+          <div>
+            <p>Total Expenses</p>
+            <h2>₹{totalExpenses.toLocaleString("en-IN")}</h2>
+            <span>All time spending</span>
+          </div>
         </div>
 
         <div className="summary-card">
-          <h3>Number of Expenses</h3>
-          <h2>{expenseCount}</h2>
+          <div className="summary-icon green">
+            ↗
+          </div>
+
+          <div>
+            <p>This Month</p>
+            <h2>₹{monthlyTotal.toLocaleString("en-IN")}</h2>
+            <span>{selectedMonthLabel}</span>
+          </div>
         </div>
 
         <div className="summary-card">
-          <h3>Highest Expense</h3>
-          <h2>₹{highestExpense}</h2>
+          <div className="summary-icon orange">
+            ★
+          </div>
+
+          <div>
+            <p>Highest Expense</p>
+            <h2>₹{highestExpense.toLocaleString("en-IN")}</h2>
+            <span>Largest transaction</span>
+          </div>
         </div>
       </section>
 
       {/* ANALYTICS */}
 
-      <section className="analytics-container">
-        <h2>Spending by Category</h2>
+      <div className="analytics-grid">
+        {/* MONTHLY OVERVIEW */}
 
-        {expensesLoading ? (
-          <div className="loading">
-            Loading analytics...
-          </div>
-        ) : categoryData.length === 0 ? (
-          <p>No expense data available.</p>
-        ) : (
-          <div className="chart-container">
-            <ResponsiveContainer
-              width="100%"
-              height={350}
+        <section className="analytics-container monthly-card">
+          <div className="section-heading">
+            <div>
+              <span className="section-label">
+                ANALYTICS
+              </span>
+
+              <h2>Monthly Overview</h2>
+
+              <p>
+                Track your spending over time.
+              </p>
+            </div>
+
+            <select
+              value={selectedMonth}
+              onChange={(e) =>
+                setSelectedMonth(e.target.value)
+              }
             >
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={120}
-                  label
+              {availableMonths.map((month) => (
+                <option
+                  key={month}
+                  value={month}
                 >
-                  {categoryData.map(
-                    (entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={
-                          CHART_COLORS[
-                            index %
-                              CHART_COLORS.length
-                          ]
-                        }
-                      />
-                    )
-                  )}
-                </Pie>
-
-                <Tooltip
-                  formatter={(value) =>
-                    `₹${value}`
-                  }
-                />
-
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+                  {new Date(
+                    `${month}-01`
+                  ).toLocaleDateString("en-IN", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
-      </section>
 
-      {/* ADD / UPDATE */}
+          {expensesLoading ? (
+            <div className="loading">
+              <div className="spinner" />
+              Loading chart...
+            </div>
+          ) : monthlyChartData.length === 0 ? (
+            <div className="empty-state">
+              <div>📊</div>
+              <p>No monthly data yet.</p>
+            </div>
+          ) : (
+            <div className="chart-container bar-chart">
+              <ResponsiveContainer
+                width="100%"
+                height={320}
+              >
+                <BarChart
+                  data={monthlyChartData}
+                  margin={{
+                    top: 10,
+                    right: 10,
+                    left: -15,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="4 4"
+                    vertical={false}
+                    stroke={
+                      darkMode
+                        ? "#334155"
+                        : "#e2e8f0"
+                    }
+                  />
+
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{
+                      fill: darkMode
+                        ? "#94a3b8"
+                        : "#64748b",
+                      fontSize: 12,
+                    }}
+                  />
+
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{
+                      fill: darkMode
+                        ? "#94a3b8"
+                        : "#64748b",
+                      fontSize: 12,
+                    }}
+                  />
+
+                  <Tooltip
+                    cursor={{
+                      fill: darkMode
+                        ? "#273449"
+                        : "#f1f5f9",
+                    }}
+                    contentStyle={{
+                      background: darkMode
+                        ? "#111827"
+                        : "#ffffff",
+                      border: darkMode
+                        ? "1px solid #334155"
+                        : "1px solid #e2e8f0",
+                      borderRadius: "12px",
+                    }}
+                    formatter={(value) => [
+                      `₹${Number(value).toLocaleString(
+                        "en-IN"
+                      )}`,
+                      "Expenses",
+                    ]}
+                  />
+
+                  <Bar
+                    dataKey="total"
+                    fill="#6366f1"
+                    radius={[8, 8, 0, 0]}
+                    maxBarSize={55}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
+
+        {/* PIE CHART */}
+
+        <section className="analytics-container category-card">
+          <div className="section-heading">
+            <div>
+              <span className="section-label">
+                BREAKDOWN
+              </span>
+
+              <h2>Spending by Category</h2>
+
+              <p>
+                {selectedMonthLabel}
+              </p>
+            </div>
+          </div>
+
+          {categoryData.length === 0 ? (
+            <div className="empty-state">
+              <div>🥧</div>
+              <p>No category data yet.</p>
+            </div>
+          ) : (
+            <div className="pie-wrapper">
+              <ResponsiveContainer
+                width="100%"
+                height={330}
+              >
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={65}
+                    outerRadius={105}
+                    paddingAngle={3}
+                    labelLine={false}
+                    label={({ percent }) =>
+                      `${(
+                        percent * 100
+                      ).toFixed(0)}%`
+                    }
+                  >
+                    {categoryData.map(
+                      (entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            CHART_COLORS[
+                              index %
+                                CHART_COLORS.length
+                            ]
+                          }
+                          stroke="none"
+                        />
+                      )
+                    )}
+                  </Pie>
+
+                  <Tooltip
+                    contentStyle={{
+                      background: darkMode
+                        ? "#111827"
+                        : "#ffffff",
+                      border: darkMode
+                        ? "1px solid #334155"
+                        : "1px solid #e2e8f0",
+                      borderRadius: "12px",
+                    }}
+                    formatter={(value) => [
+                      `₹${Number(value).toLocaleString(
+                        "en-IN"
+                      )}`,
+                      "Spent",
+                    ]}
+                  />
+
+                  <Legend
+                    verticalAlign="bottom"
+                    height={45}
+                    iconType="circle"
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* ADD EXPENSE */}
 
       <section className="expense-form">
-        <h2>
-          {editingId
-            ? "Update Expense"
-            : "Add Expense"}
-        </h2>
+        <div className="form-heading">
+          <div className="form-icon">
+            {editingId ? "✎" : "+"}
+          </div>
+
+          <div>
+            <span className="section-label">
+              {editingId
+                ? "EDIT TRANSACTION"
+                : "NEW TRANSACTION"}
+            </span>
+
+            <h2>
+              {editingId
+                ? "Update Expense"
+                : "Add Expense"}
+            </h2>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmitExpense}>
-          <input
-            type="text"
-            placeholder="Expense title"
-            value={title}
-            onChange={(e) =>
-              setTitle(e.target.value)
-            }
-            disabled={expenseSaving}
-          />
+          <div className="input-group">
+            <label>Expense Title</label>
 
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="Amount"
-            value={amount}
-            onChange={(e) =>
-              setAmount(e.target.value)
-            }
-            disabled={expenseSaving}
-          />
+            <input
+              type="text"
+              placeholder="e.g. Grocery shopping"
+              value={title}
+              onChange={(e) =>
+                setTitle(e.target.value)
+              }
+              disabled={expenseSaving}
+            />
+          </div>
 
-          <input
-            type="text"
-            placeholder="Category"
-            value={category}
-            onChange={(e) =>
-              setCategory(e.target.value)
-            }
-            disabled={expenseSaving}
-          />
+          <div className="input-group">
+            <label>Amount</label>
 
-          <button
-            type="submit"
-            disabled={expenseSaving}
-          >
-            {expenseSaving
-              ? editingId
-                ? "Updating..."
-                : "Adding..."
-              : editingId
-              ? "Update Expense"
-              : "Add Expense"}
-          </button>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="₹ 0.00"
+              value={amount}
+              onChange={(e) =>
+                setAmount(e.target.value)
+              }
+              disabled={expenseSaving}
+            />
+          </div>
 
-          {editingId && (
+          <div className="input-group">
+            <label>Category</label>
+
+            <input
+              type="text"
+              placeholder="e.g. Food"
+              value={category}
+              onChange={(e) =>
+                setCategory(e.target.value)
+              }
+              disabled={expenseSaving}
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Date</label>
+
+            <input
+              type="date"
+              value={date}
+              onChange={(e) =>
+                setDate(e.target.value)
+              }
+              disabled={expenseSaving}
+            />
+          </div>
+
+          <div className="form-buttons">
             <button
-              type="button"
-              onClick={cancelEdit}
+              className="add-button"
+              type="submit"
               disabled={expenseSaving}
             >
-              Cancel
+              {expenseSaving
+                ? "Saving..."
+                : editingId
+                ? "Update Expense"
+                : "Add Expense"}
             </button>
-          )}
+
+            {editingId && (
+              <button
+                className="cancel-button"
+                type="button"
+                onClick={clearForm}
+                disabled={expenseSaving}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </form>
       </section>
 
       {/* EXPENSE LIST */}
 
       <section className="expense-list">
-        <h2>Your Expenses</h2>
+        <div className="expense-list-header">
+          <div>
+            <span className="section-label">
+              TRANSACTIONS
+            </span>
+
+            <h2>Your Expenses</h2>
+
+            <p>
+              {filteredExpenses.length} expense
+              {filteredExpenses.length !== 1
+                ? "s"
+                : ""}{" "}
+              found
+            </p>
+          </div>
+
+          <div className="total-mini">
+            <span>Monthly Total</span>
+            <strong>
+              ₹{monthlyTotal.toLocaleString("en-IN")}
+            </strong>
+          </div>
+        </div>
+
+        {/* FILTERS */}
 
         <div className="expense-filters">
-          <input
-            type="text"
-            placeholder="Search expense..."
-            value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
-          />
+          <div className="search-box">
+            <span>⌕</span>
+
+            <input
+              type="text"
+              placeholder="Search expenses..."
+              value={search}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+            />
+
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                type="button"
+              >
+                ×
+              </button>
+            )}
+          </div>
 
           <select
             value={filterCategory}
@@ -801,61 +1293,135 @@ function App() {
           </select>
         </div>
 
+        {/* LIST */}
+
         {expensesLoading ? (
-          <div className="loading">
+          <div className="loading list-loading">
+            <div className="spinner" />
             Loading expenses...
           </div>
         ) : filteredExpenses.length === 0 ? (
-          <div className="empty-state">
-            <p>No expenses found.</p>
+          <div className="empty-state expense-empty">
+            <div>💸</div>
+
+            <h3>No expenses found</h3>
+
+            <p>
+              Try another month, category or search.
+            </p>
           </div>
         ) : (
-          filteredExpenses.map((expense) => (
-            <div
-              className="expense-card"
-              key={expense._id}
-            >
-              <div>
-                <h3>{expense.title}</h3>
+          <div className="expenses-wrapper">
+            {filteredExpenses.map((expense) => {
+              const expenseDate =
+                expense.date || expense.createdAt;
 
-                <p>
-                  Category: {expense.category}
-                </p>
+              const categoryIndex =
+                categories.indexOf(
+                  expense.category
+                );
 
-                <strong>
-                  ₹{expense.amount}
-                </strong>
-              </div>
+              const categoryColor =
+                CHART_COLORS[
+                  Math.max(categoryIndex - 1, 0) %
+                    CHART_COLORS.length
+                ];
 
-              <div className="expense-actions">
-                <button
-                  onClick={() =>
-                    handleEdit(expense)
-                  }
-                  disabled={
-                    deletingId === expense._id
-                  }
+              return (
+                <div
+                  className="expense-card"
+                  key={expense._id}
                 >
-                  Edit
-                </button>
+                  <div
+                    className="expense-category-icon"
+                    style={{
+                      background: `${categoryColor}20`,
+                      color: categoryColor,
+                    }}
+                  >
+                    {expense.category
+                      ?.charAt(0)
+                      .toUpperCase() || "E"}
+                  </div>
 
-                <button
-                  onClick={() =>
-                    handleDelete(expense._id)
-                  }
-                  disabled={
-                    deletingId === expense._id
-                  }
-                >
-                  {deletingId === expense._id
-                    ? "Deleting..."
-                    : "Delete"}
-                </button>
-              </div>
-            </div>
-          ))
+                  <div className="expense-info">
+                    <h3>{expense.title}</h3>
+
+                    <div className="expense-meta">
+                      <span>
+                        {expense.category}
+                      </span>
+
+                      <span>•</span>
+
+                      <span>
+                        {new Date(
+                          expenseDate
+                        ).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          }
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="expense-amount">
+                    <strong>
+                      ₹
+                      {Number(
+                        expense.amount
+                      ).toLocaleString("en-IN")}
+                    </strong>
+                  </div>
+
+                  <div className="expense-actions">
+                    <button
+                      className="edit-button"
+                      onClick={() =>
+                        handleEdit(expense)
+                      }
+                      disabled={
+                        deletingId ===
+                        expense._id
+                      }
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      className="delete-button"
+                      onClick={() =>
+                        handleDelete(
+                          expense._id
+                        )
+                      }
+                      disabled={
+                        deletingId ===
+                        expense._id
+                      }
+                    >
+                      {deletingId ===
+                      expense._id
+                        ? "..."
+                        : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
+
+      <footer className="footer">
+        <p>
+          ExpenseFlow • Manage your money smarter
+        </p>
+      </footer>
     </div>
   );
 }
